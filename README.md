@@ -42,12 +42,18 @@ This repository is organized as follows:
 
 (Choose either version/option)
 
-For the **C++ version**, a standard C++ compiler (e.g., MSVC via Visual Studio 2015 or later) is required.
-
-For the **Python versions**, you will need Python 3.x and the following packages:
+For the **C++ version**, a C++14 compiler (MSVC, GCC or Clang) and CMake are required. Build on Windows or Linux with:
 
 ```bash
-pip install numpy scipy
+cmake -S TreeSeparation/TreeSeparation -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+```
+
+For the **Python versions**, create the conda environment:
+
+```bash
+conda env create -f environment.yml
+conda activate treeseparation
 ```
 
 _(Note: The parallel version uses Python's built-in multiprocessing libraries, so no additional external dependencies are required)._
@@ -90,14 +96,14 @@ There are three parameters that have to be initialized for optimal individualiza
 
 ### C++ Usage
 
-Modify the variables in your main file _(Note that the parameters are based on geo-referenced point cloud data)_:
+Pass the parameters on the command line _(Note that the parameters are based on geo-referenced point cloud data)_:
 
-```cpp
-// Parameter settings
-const double radius = 1.0;               // Searching Radius, 1.0 meter
-const double verticalResolution = 1.0;   // Vertical resolution of the layers, 1.0 meter
-const int miniPtsPerCluster = 5;         // Minimum number of points per cluster, 5 points
+```bash
+TreeSeparation input.xyz output.xyz radius verticalResolution miniPtsPerCluster direction
+TreeSeparation test-02.xyz test-02-trees.xyz 1.0 0.7 3 1   # direction: 1 top-down, -1 bottom-up
 ```
+
+The C++ output has four columns, `treeID x y z` (no colors).
 
 ### Python Usage
 
@@ -122,6 +128,8 @@ treeID      x             y             z          r    g    b
 ```
 
 Notably, the first column is the **index of the tree** to which this point is assigned. The last three columns are randomly designated RGB colors for the points belonging to the same tree, which is highly useful for direct visualization.
+
+Every input point is written exactly once: points in clusters smaller than the minimum size are assigned to the tree of their nearest assigned point. Layers are aligned to multiples of the vertical resolution, so tiles of one cloud processed with a buffer of at least the largest crown width (keeping trees whose top lies in the tile core) reproduce the untiled result. Write tiles without rounding coordinates; points sitting exactly on layer boundaries make results sensitive to tiny coordinate changes.
 
 For the **Python versions**, outputs are automatically written to the `1_Individualized_trees` directory. The output filenames will automatically append your chosen parameters for easy tracking (e.g., `filename_1.0_1.0_5.xyz`).
 

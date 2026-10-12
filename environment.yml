@@ -1,0 +1,9 @@
+name: treeseparation
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - numpy
+  - scipy
+  - matplotlib-base   # charts in compare_efficiency.py (saved to file; no GUI backend needed)
+  - pip

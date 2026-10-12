@@ -184,6 +184,9 @@ private:
 	//Assign points to their closest tree and return the rest points;
 	std::vector<int> assignPtsToTrees(std::vector<int> newPtIDs, double radius);
 
+	//Assign points not in any tree to the tree of their nearest assigned point;
+	void assignLeftoverPts();
+
 	//Generate tree clusters from the point clusters;
 	void generateTreeClusters(std::vector<std::vector<int>> ptClusters);
 

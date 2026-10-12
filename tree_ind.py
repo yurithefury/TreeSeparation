@@ -184,16 +184,20 @@ class FoxTree:
         is_top_layer = True
         layer_idx = 0
         
-        # Iterate from Max Z down to Min Z
-        curr_height = self.z_max
-        while curr_height >= self.z_min:
+        # Iterate from Max Z down to Min Z; layer bounds are multiples of the
+        # vertical resolution, so tiles of one cloud share the same layers
+        level = int(np.ceil(self.z_max / self.vertical_resolution))
+        if level * self.vertical_resolution < self.z_max:
+            level += 1
+        while level * self.vertical_resolution >= self.z_min:
+            curr_height = level * self.vertical_resolution
             t0 = time.time()
             
             # 1. Get points in this layer
-            pt_ids = self.get_pts_in_layer(curr_height - self.vertical_resolution, curr_height)
+            pt_ids = self.get_pts_in_layer((level - 1) * self.vertical_resolution, curr_height)
             
             if not pt_ids:
-                curr_height -= self.vertical_resolution
+                level -= 1
                 continue
             
             print(f"Layer {layer_idx}: Height [{curr_height - self.vertical_resolution:.2f} - {curr_height:.2f}], Points: {len(pt_ids)}")
@@ -236,8 +240,14 @@ class FoxTree:
             print(f"  Layer Processing time: {t1 - t0:.3f} seconds.")
             print("=============================================")
             
-            curr_height -= self.vertical_resolution
+            level -= 1
             layer_idx += 1
+
+        # Points left out by all layers (clusters below min_pts_seeds) join the tree of their nearest assigned point
+        leftover = np.where(self.tree_ids < 0)[0].tolist()
+        if leftover and self.parsed_pt_indices:
+            print(f"Assigning {len(leftover)} leftover points to nearest trees...")
+            self.assign_pts_to_trees(leftover, np.inf)
 
         sep_end_time = time.time()
         print(f"Total Separation Algorithm Time: {sep_end_time - sep_start_time:.4f} seconds.")

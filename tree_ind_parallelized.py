@@ -108,11 +108,14 @@ class FoxTree:
         # --------------------------------
         t_slice_start = time.time()
         layers = []
-        curr_height = self.z_max
+        # Layer bounds are multiples of the vertical resolution, so tiles of one cloud share the same layers
+        level = int(np.ceil(self.z_max / self.vertical_resolution))
+        if level * self.vertical_resolution < self.z_max:
+            level += 1
         
-        while curr_height >= self.z_min:
-            lower = curr_height - self.vertical_resolution
-            upper = curr_height
+        while level * self.vertical_resolution >= self.z_min:
+            lower = (level - 1) * self.vertical_resolution
+            upper = level * self.vertical_resolution
             
             mask = (self.points_data[:, 2] > lower) & (self.points_data[:, 2] <= upper)
             layer_indices = np.where(mask)[0]
@@ -121,7 +124,7 @@ class FoxTree:
                 layer_coords = self.points_data[layer_indices]
                 layers.append((layer_coords, layer_indices, self.radius))
             
-            curr_height -= self.vertical_resolution
+            level -= 1
             
         t_slice_end = time.time()
         print(f"  [Time] Slicing ({len(layers)} layers): {t_slice_end - t_slice_start:.4f} sec")
@@ -197,6 +200,13 @@ class FoxTree:
                 else:
                     # The parallel clustering merged two trees. We must split them.
                     self.resolve_cluster_conflict(cluster, local_pt_to_tree)
+
+        # Points left out by all layers (clusters below min_pts_seeds) join the tree of their nearest assigned point
+        leftover = np.where(self.tree_ids < 0)[0]
+        if len(leftover) and self.parsed_pt_indices:
+            _, nearest = cKDTree(self.points_data[self.parsed_pt_indices]).query(self.points_data[leftover], k=1)
+            for pid, k in zip(leftover, nearest):
+                self.assign_point_to_tree(int(pid), self.tree_ids[self.parsed_pt_indices[k]])
 
         t_link_end = time.time()
         print(f"  [Time] Sequential Linking:  {t_link_end - t_link_start:.4f} sec")

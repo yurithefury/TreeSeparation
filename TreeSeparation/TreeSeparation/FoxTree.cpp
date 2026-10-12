@@ -164,10 +164,14 @@ void FoxTree::topDownSeparation(double radius, double verticalResolution)
 	bool isTopLayer = true;
 	int k = 0;
 
-	for (float height = this->m_nBBX.zMax; height >= this->m_nBBX.zMin; height -= verticalResolution)
+	//Layer bounds are multiples of verticalResolution, so tiles of one cloud share the same layers;
+	int topLevel = (int)ceil(this->m_nBBX.zMax / verticalResolution);
+	if (topLevel * verticalResolution < this->m_nBBX.zMax) ++topLevel;
+	for (int level = topLevel; level * verticalResolution >= this->m_nBBX.zMin; --level)
 	{
+		double height = level * verticalResolution;
 		clock_t startTime = clock();
-		std::vector<int> ptIDs = this->getPts(height - verticalResolution, height);
+		std::vector<int> ptIDs = this->getPts((level - 1) * verticalResolution, height);
 		if (ptIDs.empty()) continue;
 
 		std::vector<std::vector<int>> currLayerClusters;
@@ -221,6 +225,7 @@ void FoxTree::topDownSeparation(double radius, double verticalResolution)
 		std::cout << "Height index: " << k++ << std::endl;
 		std::cout << "=============================================" << std::endl;
 	}
+	this->assignLeftoverPts();
 }
 
 
@@ -230,11 +235,14 @@ void FoxTree::bottomUpSeparation(double radius, double verticalResolution)
 {
 	bool isBottomLayer = true;
 	int k = 0;
-	for (float height = this->m_nBBX.zMin; height <= this->m_nBBX.zMax; height += verticalResolution)
+	int bottomLevel = (int)floor(this->m_nBBX.zMin / verticalResolution);
+	if (bottomLevel * verticalResolution >= this->m_nBBX.zMin) --bottomLevel;
+	for (int level = bottomLevel; level * verticalResolution < this->m_nBBX.zMax; ++level)
 	{
+		double height = level * verticalResolution;
 		clock_t startTime = clock();
-		std::vector<int> ptIDs = this->getPts(height, height + verticalResolution);
-		if (ptIDs.empty()) return;
+		std::vector<int> ptIDs = this->getPts(height, (level + 1) * verticalResolution);
+		if (ptIDs.empty()) continue;
 
 		std::vector<std::vector<int>> currLayerCluster;
 		currLayerCluster.clear();
@@ -284,6 +292,7 @@ void FoxTree::bottomUpSeparation(double radius, double verticalResolution)
 		std::cout << "Height index: " << k++ << std::endl;
 		std::cout << "=============================================" << std::endl;
 	}
+	this->assignLeftoverPts();
 }
 
 
@@ -357,6 +366,20 @@ std::vector<std::vector<int>> FoxTree::clusterPoints(double radius, std::vector<
 	if (currKDTree) delete currKDTree; currKDTree = nullptr;
 
 	return Clusters;
+}
+
+
+//Assign points left out by all layers (clusters below m_nMinPtSeeds) to the tree of their nearest assigned point.
+void FoxTree::assignLeftoverPts()
+{
+	std::vector<int> leftoverIDs;
+	for (int i = 0; i < this->m_nNumPts; ++i)
+	{
+		if (this->m_Points[i].treeID < 0) leftoverIDs.push_back(i);
+	}
+	if (leftoverIDs.empty() || this->m_nParsedPtIds.empty()) return;
+
+	this->assignPtsToTrees(leftoverIDs, (std::numeric_limits<double>::max)());
 }
 
 
