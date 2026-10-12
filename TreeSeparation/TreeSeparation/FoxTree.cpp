@@ -39,6 +39,7 @@ FoxTree::FoxTree(std::vector<Point3D> points, double radius, double verticalReso
 	this->m_nVerticalResolution = verticalResolution;
 	this->m_nRadius = radius;
 	this->m_nMinPtSeeds = minPtNum;
+	this->m_nTreeIndex = 0;
 
 	this->m_nNumPts = points.size();
 	this->m_Points = new Point3D[points.size()];
@@ -257,7 +258,7 @@ void FoxTree::bottomUpSeparation(double radius, double verticalResolution)
 			std::vector<int> restPts = ptIDs;
 			int parsedPts = 0;
 			std::cout << "Incrementally assign points..." << std::endl;
-			if(!this->m_ParsedPtIds.empty())
+			if(!this->m_nParsedPtIds.empty())
 			{
 				do
 				{
@@ -505,6 +506,26 @@ void FoxTree::outputTrees(std::string filename, std::map<int, TreeCluster> trees
 			fprintf(file, "%d %lf %lf %lf %d %d %d\n",
 				pt.treeID, pt.x, pt.y, pt.z,
 				r, g, b);
+		}
+	}
+	fclose(file);
+}
+
+
+//Output points w.r.t. different tree indices, without colors;
+void FoxTree::outputTreesMy(std::string filename, std::map<int, TreeCluster> trees)
+{
+	FILE* file = fopen(filename.c_str(), "w");
+
+	for (int i = 0; i < trees.size(); ++i)
+	{
+		for (int j = 0; j < trees.at(i).ptIDs.size(); ++j)
+		{
+			int id = trees.at(i).ptIDs.at(j);
+
+			Point3D pt = this->m_Points[id];
+			fprintf(file, "%d %lf %lf %lf\n",
+				pt.treeID, pt.x, pt.y, pt.z);
 		}
 	}
 	fclose(file);

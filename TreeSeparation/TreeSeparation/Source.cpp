@@ -21,17 +21,32 @@
 
 
 #include<iostream>
+#include<sstream>
 
 #include"FoxTree.h"
 
 
-void main()
+int main(int argc, char** argv)
 {
+	if (argc < 7)
+	{
+		std::cerr << "usage: " << argv[0] << " inputFile outputFile radius verticalResolution miniPtsPerCluster direction" << std::endl;
+		return 1;
+	}
+
+	//Parameters
+	double radius, verticalResolution;
+	int miniPtsPerCluster, direction;
+	std::istringstream(argv[3]) >> radius;
+	std::istringstream(argv[4]) >> verticalResolution;
+	std::istringstream(argv[5]) >> miniPtsPerCluster;
+	std::istringstream(argv[6]) >> direction; //Top-down: 1; Bottom-up: -1
+
 	std::vector<Point3D> points;
 	Point3D tempPt;
 
 	//Reading points from ASCII formated file;
-	FILE* inFile = fopen("test-02.xyz", "r");
+	FILE* inFile = fopen(argv[1], "r");
 	if (inFile)
 	{
 		while (!feof(inFile))
@@ -45,23 +60,17 @@ void main()
 	else
 	{
 		std::cout << "There was an error in data loading..." << std::endl;
-		return; 
-	} 
-
-	
-	//Parameters
-	const double radius = 1.0; 
-	const double verticalResolution = 0.7; 
-	const int miniPtsPerCluster = 3;
+		return 1;
+	}
 
 	//Initialization
 	FoxTree* foxTree = new FoxTree(points, radius, verticalResolution, miniPtsPerCluster);
 
-	//Topdown direction
-	foxTree->separateTrees(1, 1);
+	foxTree->separateTrees(1, direction);
 	//Output separation results
-	foxTree->outputTrees("test-02-1.0-0.7-3.xyz", foxTree->m_nTrees); 
+	foxTree->outputTreesMy(argv[2], foxTree->m_nTrees);
 	std::cout << "Finished" << std::endl;
 
 	if (foxTree) delete foxTree; foxTree = nullptr;
+	return 0;
 }

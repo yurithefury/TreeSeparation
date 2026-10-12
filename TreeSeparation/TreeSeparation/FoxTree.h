@@ -159,6 +159,7 @@ public:
 	void outputClusters(std::string fileName, std::vector < std::vector<int>> ptIDs);
 	void outputPts(std::string fileName, std::vector<int> ptIDs);
 	void outputTrees(std::string fileName, std::map<int, TreeCluster> trees);
+	void outputTreesMy(std::string fileName, std::map<int, TreeCluster> trees);
 	 
 private:
 	//Initialized the class with tree points;
