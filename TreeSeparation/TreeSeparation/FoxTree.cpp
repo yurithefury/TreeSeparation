@@ -535,20 +535,23 @@ void FoxTree::outputTrees(std::string filename, std::map<int, TreeCluster> trees
 }
 
 
-//Output points w.r.t. different tree indices, without colors;
+//Output points w.r.t. different tree indices, with a color derived from the tree index (same in the Python versions);
 void FoxTree::outputTreesMy(std::string filename, std::map<int, TreeCluster> trees)
 {
 	FILE* file = fopen(filename.c_str(), "w");
 
 	for (int i = 0; i < trees.size(); ++i)
 	{
+		unsigned int h = (unsigned int)(i + 1) * 2654435761u;
+		unsigned int r = (h >> 16) & 255, g = (h >> 8) & 255, b = h & 255;
+
 		for (int j = 0; j < trees.at(i).ptIDs.size(); ++j)
 		{
 			int id = trees.at(i).ptIDs.at(j);
 
 			Point3D pt = this->m_Points[id];
-			fprintf(file, "%d %.17g %.17g %.17g\n",
-				pt.treeID, pt.x, pt.y, pt.z);
+			fprintf(file, "%d %.17g %.17g %.17g %u %u %u\n",
+				pt.treeID, pt.x, pt.y, pt.z, r, g, b);
 		}
 	}
 	fclose(file);

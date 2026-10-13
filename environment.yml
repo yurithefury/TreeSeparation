@@ -1,3 +1,5 @@
+# conda create --name treeseparation python=3.13
+# mamba env update -n treeseparation --file environment.yml
 name: treeseparation
 channels:
   - conda-forge
@@ -5,5 +7,6 @@ dependencies:
   - python=3.13
   - numpy
   - scipy
+  - click             # command-line options of tree_ind.py and tree_ind_parallelized.py
   - matplotlib-base   # charts in compare_efficiency.py (saved to file; no GUI backend needed)
   - pip

@@ -10,6 +10,7 @@ License: GNU General Public License Version 3
 import sys
 import os
 import glob
+import click
 import numpy as np
 import time
 from scipy.spatial import cKDTree
@@ -262,18 +263,16 @@ class FoxTree:
             with open(filename, 'w') as f:
                 # C++ iterates over the map of trees
                 for t_id, indices in self.trees.items():
-                    # Generate random color for this tree
-                    r = np.random.randint(0, 255)
-                    g = np.random.randint(0, 255)
-                    b = np.random.randint(0, 255)
-                    
+                    # Color derived from the tree ID, identical to the C++ version
+                    h = ((int(t_id) + 1) * 2654435761) & 0xFFFFFFFF
+                    r, g, b = (h >> 16) & 255, (h >> 8) & 255, h & 255
                     for idx in indices:
                         pt = self.points_data[idx]
-                        # Format: TreeID X Y Z R G B
                         f.write(f"{t_id} {pt[0]:.17g} {pt[1]:.17g} {pt[2]:.17g} {r} {g} {b}\n")
             print("Finished writing file.")
         except IOError as e:
             print(f"Error writing file: {e}")
+            raise
 
 def process_file(input_path, output_path, radius, v_res, min_pts):
     """
@@ -289,11 +288,11 @@ def process_file(input_path, output_path, radius, v_res, min_pts):
         t_load_end = time.time()
     except Exception as e:
         print(f"Error loading data from {input_path}: {e}")
-        return
+        return False
 
     if points.size == 0:
         print(f"Point cloud in {input_path} is empty or invalid.")
-        return
+        return True
 
     print(f"\nProcessing: {os.path.basename(input_path)}")
     print(f"Loaded {len(points)} points.")
@@ -318,8 +317,22 @@ def process_file(input_path, output_path, radius, v_res, min_pts):
     print(f"  Writing Output:    {t_write_end - t_write_start:.4f} sec")
     print(f"  Total File Time:   {file_end_time - file_start_time:.4f} sec")
     print("---------------------------------------------------------")
+    return True
 
-if __name__ == "__main__":
+@click.command()
+@click.option("-i", "--input", "input_path", type=click.Path(exists=True, dir_okay=False),
+              help="Input .xyz file (x y z in the first three columns). Omit to process all .xyz files in TestDatasets.")
+@click.option("-o", "--output", "output_path", type=click.Path(dir_okay=False),
+              help="Output .xyz file (treeID x y z r g b). Required with --input.")
+@click.option("--radius", default=1.0, show_default=True, help="Search radius.")
+@click.option("--vertical-resolution", default=0.7, show_default=True, help="Vertical slice resolution.")
+@click.option("--min-pts", default=3, show_default=True, help="Minimum points to form a tree seed.")
+def main(input_path, output_path, radius, vertical_resolution, min_pts):
+    """Separate individual trees in one .xyz file, or in every .xyz file in TestDatasets (written to 1_Individualized_trees)."""
+    if input_path:
+        if not output_path:
+            raise click.UsageError("--output is required with --input")
+        sys.exit(0 if process_file(input_path, output_path, radius, vertical_resolution, min_pts) else 1)
     # =========================================================
     #                    USER PARAMETERS
     # =========================================================
@@ -329,9 +342,9 @@ if __name__ == "__main__":
     OUTPUT_DIR_NAME = "1_Individualized_trees"
     
     # Algorithm parameters
-    RADIUS = 1.0              # Search radius
-    VERTICAL_RESOLUTION = 0.7 # Vertical slice resolution
-    MIN_PTS_PER_CLUSTER = 3   # Minimum points to form a tree seed
+    RADIUS = radius
+    VERTICAL_RESOLUTION = vertical_resolution
+    MIN_PTS_PER_CLUSTER = min_pts
     
     # =========================================================
     #                   MAIN EXECUTION
@@ -380,3 +393,7 @@ if __name__ == "__main__":
         
     batch_end_time = time.time()
     print(f"\nAll tasks completed in {batch_end_time - batch_start_time:.4f} seconds.")
+
+
+if __name__ == "__main__":
+    main()

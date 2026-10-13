@@ -102,32 +102,27 @@ Pass the parameters on the command line _(Note that the parameters are based on 
 TreeSeparation input.xyz output.xyz radius verticalResolution miniPtsPerCluster direction
 TreeSeparation test-02.xyz test-02-trees.xyz 1.0 0.7 3 1   # direction: 1 top-down, -1 bottom-up
 ```
-
-The C++ output has four columns, `treeID x y z` (no colors).
-
 ### Python Usage
 
-Modify the global variables under the `USER PARAMETERS` section at the bottom of the Python scripts:
+Pass the input and output files and the parameters as options (both scripts take the same options; see `--help`):
 
-```python
-# Algorithm parameters
-RADIUS = 1.0              # Search radius
-VERTICAL_RESOLUTION = 1.0 # Vertical slice resolution
-MIN_PTS_PER_CLUSTER = 5   # Minimum points to form a tree seed
+```bash
+python tree_ind.py -i TestDatasets/test-02.xyz -o test-02-trees.xyz --radius 1.0 --vertical-resolution 0.7 --min-pts 3
+python tree_ind_parallelized.py -i TestDatasets/test-02.xyz -o test-02-trees.xyz --radius 1.0 --vertical-resolution 0.7 --min-pts 3
 ```
 
-_For the parallel version, you can also typically specify the number of CPU workers/cores to utilize for batch processing._
+Without `--input`, the scripts process every `.xyz` file in `TestDatasets` with the given (or default) parameters. The Python versions separate trees top-down only.
 
 ## Output Format
 
 The output of this implementation is an ASCII format `*.xyz` file:
 
 ```text
-treeID      x             y             z          r    g    b
-89      623942.8999   4833932.5500   77.8399       36   76   89
+treeID  x                  y                  z                   r    g    b
+89      190248.7099609375  462600.2799987793  100.86000061035156  128  200  58
 ```
 
-Notably, the first column is the **index of the tree** to which this point is assigned. The last three columns are randomly designated RGB colors for the points belonging to the same tree, which is highly useful for direct visualization.
+The first column is the **index of the tree** to which this point is assigned, followed by the point's coordinates exactly as read from the input. The last three columns are an RGB color per tree for direct visualization; it is derived from the tree index, so the C++ and Python versions write identical files.
 
 Every input point is written exactly once: points in clusters smaller than the minimum size are assigned to the tree of their nearest assigned point. Layers are aligned to multiples of the vertical resolution, so tiles of one cloud processed with a buffer of at least the largest crown width (keeping trees whose top lies in the tile core) reproduce the untiled result. Write tiles without rounding coordinates; points sitting exactly on layer boundaries make results sensitive to tiny coordinate changes.
 

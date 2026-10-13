@@ -21,12 +21,13 @@ for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
     os.environ.setdefault(_var, "1")
 
 try:
+    import click
     import numpy as np
     from scipy.spatial import cKDTree
 except ImportError as e:
     print("Error: Missing required libraries.")
     print(f"Details: {e}")
-    print("Please run: pip install numpy scipy")
+    print("Please run: conda env create -f environment.yml")
     sys.exit(1)
 
 # =========================================================
@@ -308,10 +309,9 @@ class FoxTree:
         try:
             with open(filename, 'w') as f:
                 for t_id, indices in self.trees.items():
-                    r = np.random.randint(0, 255)
-                    g = np.random.randint(0, 255)
-                    b = np.random.randint(0, 255)
-                    
+                    # Color derived from the tree ID, identical to the C++ version
+                    h = ((int(t_id) + 1) * 2654435761) & 0xFFFFFFFF
+                    r, g, b = (h >> 16) & 255, (h >> 8) & 255, h & 255
                     lines = []
                     for idx in indices:
                         pt = self.points_data[idx]
@@ -366,16 +366,28 @@ def process_file(input_path, output_path, radius, v_res, min_pts):
 #                   MAIN ENTRY POINT
 # =========================================================
 
-if __name__ == "__main__":
-    multiprocessing.freeze_support() 
+@click.command()
+@click.option("-i", "--input", "input_path", type=click.Path(exists=True, dir_okay=False),
+              help="Input .xyz file (x y z in the first three columns). Omit to process all .xyz files in TestDatasets.")
+@click.option("-o", "--output", "output_path", type=click.Path(dir_okay=False),
+              help="Output .xyz file (treeID x y z r g b). Required with --input.")
+@click.option("--radius", default=1.0, show_default=True, help="Search radius.")
+@click.option("--vertical-resolution", default=0.7, show_default=True, help="Vertical slice resolution.")
+@click.option("--min-pts", default=3, show_default=True, help="Minimum points to form a tree seed.")
+def main(input_path, output_path, radius, vertical_resolution, min_pts):
+    """Separate individual trees in one .xyz file, or in every .xyz file in TestDatasets (written to 1_Individualized_trees_parallelized)."""
+    if input_path:
+        if not output_path:
+            raise click.UsageError("--output is required with --input")
+        sys.exit(0 if process_file(input_path, output_path, radius, vertical_resolution, min_pts) else 1)
     
     # --- USER PARAMETERS ---
     INPUT_DIR_NAME = "TestDatasets"
     OUTPUT_DIR_NAME = "1_Individualized_trees_parallelized"
     
-    RADIUS = 1.0
-    VERTICAL_RESOLUTION = 0.7
-    MIN_PTS_PER_CLUSTER = 3
+    RADIUS = radius
+    VERTICAL_RESOLUTION = vertical_resolution
+    MIN_PTS_PER_CLUSTER = min_pts
     
     # --- SETUP ---
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -420,3 +432,8 @@ if __name__ == "__main__":
     if failed:
         print(f"FAILED: {len(failed)} file(s): {', '.join(failed)}")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    multiprocessing.freeze_support() 
+    main()
