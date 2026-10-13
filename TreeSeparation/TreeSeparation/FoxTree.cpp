@@ -21,6 +21,23 @@
 
 
 #include"FoxTree.h"
+#include<chrono>
+#include<cstdio>
+#include<string>
+
+
+//Single-line progress bar on stderr, redrawn in place;
+static void printProgress(const char* label, int done, int total, double lower, double upper,
+	int layerPts, int trees, std::chrono::steady_clock::time_point start)
+{
+	const int width = 20;
+	int filled = total > 0 ? done * width / total : width;
+	double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+	fprintf(stderr, "\r%s [%s%s] %3d/%d layers | z %.1f-%.1f m | %7d pts | %6d trees | %6.1f s",
+		label, std::string(filled, '#').c_str(), std::string(width - filled, '-').c_str(),
+		done, total, lower, upper, layerPts, trees, seconds);
+	fflush(stderr);
+}
 
 FoxTree::FoxTree()
 	: m_Points(nullptr)
@@ -167,16 +184,18 @@ void FoxTree::topDownSeparation(double radius, double verticalResolution)
 	//Layer bounds are multiples of verticalResolution, so tiles of one cloud share the same layers;
 	int topLevel = (int)ceil(this->m_nBBX.zMax / verticalResolution);
 	if (topLevel * verticalResolution < this->m_nBBX.zMax) ++topLevel;
+	int numLayers = 0;
+	for (int level = topLevel; level * verticalResolution >= this->m_nBBX.zMin; --level) ++numLayers;
+	auto start = std::chrono::steady_clock::now();
 	for (int level = topLevel; level * verticalResolution >= this->m_nBBX.zMin; --level)
 	{
 		double height = level * verticalResolution;
-		clock_t startTime = clock();
 		std::vector<int> ptIDs = this->getPts((level - 1) * verticalResolution, height);
+		printProgress("Top-down ", k++, numLayers, (level - 1) * verticalResolution, height, (int)ptIDs.size(), (int)this->m_nTrees.size(), start);
 		if (ptIDs.empty()) continue;
 
 		std::vector<std::vector<int>> currLayerClusters;
 		currLayerClusters.clear();
-		std::cout << "Total number of points in this layer: " << ptIDs.size() << std::endl;
 
 		if (isTopLayer)
 		{
@@ -196,7 +215,6 @@ void FoxTree::topDownSeparation(double radius, double verticalResolution)
 		{
 			std::vector<int> restPts = ptIDs;
 			int parsedPts = 0;
-			std::cout << "Incrementally assign points..." << std::endl;
 
 			std::vector<int> pointIndices = ptIDs;
 			if(!this->m_nParsedPtIds.empty())
@@ -208,23 +226,14 @@ void FoxTree::topDownSeparation(double radius, double verticalResolution)
 				} while (parsedPts != this->m_nParsedPtIds.size());
 			}
 
-			std::cout << "Finished assigning points" << std::endl;
-
 			std::vector<std::vector<int>> currLayerClusters;
-			clock_t t0 = clock();
-			std::cout << "Clustering " << ptIDs.size() << " points..." << std::endl;
 			currLayerClusters = this->clusterPoints(radius, restPts);
-			std::cout << "Time elapsed: " << clock() - t0 << std::endl;
-			std::cout << "Finished clustering points" << std::endl;
 			this->generateTreeClusters(currLayerClusters);
 			this->ConcatenateToParsedPts(currLayerClusters);
 		}
-		clock_t endTime = clock();
-
-		std::cout << "Processing time for height: [" << height << " <=> " << height + verticalResolution << "] is: " << (endTime - startTime) / 1000 << " seconds." << std::endl;
-		std::cout << "Height index: " << k++ << std::endl;
-		std::cout << "=============================================" << std::endl;
 	}
+	printProgress("Top-down ", numLayers, numLayers, this->m_nBBX.zMin, this->m_nBBX.zMax, this->m_nNumPts, (int)this->m_nTrees.size(), start);
+	fprintf(stderr, "\n");
 	this->assignLeftoverPts();
 }
 
@@ -237,16 +246,18 @@ void FoxTree::bottomUpSeparation(double radius, double verticalResolution)
 	int k = 0;
 	int bottomLevel = (int)floor(this->m_nBBX.zMin / verticalResolution);
 	if (bottomLevel * verticalResolution >= this->m_nBBX.zMin) --bottomLevel;
+	int numLayers = 0;
+	for (int level = bottomLevel; level * verticalResolution < this->m_nBBX.zMax; ++level) ++numLayers;
+	auto start = std::chrono::steady_clock::now();
 	for (int level = bottomLevel; level * verticalResolution < this->m_nBBX.zMax; ++level)
 	{
 		double height = level * verticalResolution;
-		clock_t startTime = clock();
 		std::vector<int> ptIDs = this->getPts(height, (level + 1) * verticalResolution);
+		printProgress("Bottom-up", k++, numLayers, height, (level + 1) * verticalResolution, (int)ptIDs.size(), (int)this->m_nTrees.size(), start);
 		if (ptIDs.empty()) continue;
 
 		std::vector<std::vector<int>> currLayerCluster;
 		currLayerCluster.clear();
-		std::cout << "Total number of points in this layer: " << ptIDs.size() << std::endl;
 		if (isBottomLayer)
 		{
 			currLayerCluster = this->clusterPoints(radius, ptIDs);
@@ -265,7 +276,6 @@ void FoxTree::bottomUpSeparation(double radius, double verticalResolution)
 		{
 			std::vector<int> restPts = ptIDs;
 			int parsedPts = 0;
-			std::cout << "Incrementally assign points..." << std::endl;
 			if(!this->m_nParsedPtIds.empty())
 			{
 				do
@@ -275,23 +285,14 @@ void FoxTree::bottomUpSeparation(double radius, double verticalResolution)
 				} while (parsedPts != this->m_nParsedPtIds.size());
 			}
 			
-			std::cout << "Finished assigning points" << std::endl;
-			
 			std::vector<std::vector<int>> currLayerClusters;
-			clock_t t0 = clock();
-			std::cout << "Clustering "<< ptIDs.size()<<" points..." << std::endl;
 			currLayerClusters = this->clusterPoints(radius, restPts);
-			std::cout << "Time elapsed: " << clock() - t0 << std::endl;
-			std::cout << "Finished clustering points" << std::endl;
 			this->generateTreeClusters(currLayerClusters);
 			this->ConcatenateToParsedPts(currLayerClusters);
 		}
-		clock_t endTime = clock();
-		
-		std::cout << "Processing time for height: [" << height <<" <=> " <<height + verticalResolution << "] is: " << (endTime - startTime)/1000 <<" seconds." <<std::endl;
-		std::cout << "Height index: " << k++ << std::endl;
-		std::cout << "=============================================" << std::endl;
 	}
+	printProgress("Bottom-up", numLayers, numLayers, this->m_nBBX.zMin, this->m_nBBX.zMax, this->m_nNumPts, (int)this->m_nTrees.size(), start);
+	fprintf(stderr, "\n");
 	this->assignLeftoverPts();
 }
 
@@ -380,6 +381,7 @@ void FoxTree::assignLeftoverPts()
 	if (leftoverIDs.empty() || this->m_nParsedPtIds.empty()) return;
 
 	this->assignPtsToTrees(leftoverIDs, (std::numeric_limits<double>::max)());
+	std::cout << "Assigned " << leftoverIDs.size() << " leftover points to their nearest trees" << std::endl;
 }
 
 

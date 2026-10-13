@@ -20,8 +20,10 @@
 */
 
 
+#include<chrono>
 #include<iostream>
 #include<fstream>
+#include<iomanip>
 #include<sstream>
 #include<string>
 
@@ -76,10 +78,14 @@ int main(int argc, char** argv)
 	//Initialization
 	FoxTree* foxTree = new FoxTree(points, radius, verticalResolution, miniPtsPerCluster);
 
+	auto start = std::chrono::steady_clock::now();
 	foxTree->separateTrees(1, direction);
 	//Output separation results
+	std::cout << "Writing " << argv[2] << "..." << std::endl;
 	foxTree->outputTreesMy(argv[2], foxTree->m_nTrees);
-	std::cout << "Finished" << std::endl;
+	double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+	std::cout << "Separated " << points.size() << " points into " << foxTree->m_nTrees.size()
+		<< " trees in " << std::fixed << std::setprecision(1) << seconds << " s" << std::endl;
 
 	if (foxTree) delete foxTree; foxTree = nullptr;
 	return 0;

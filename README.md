@@ -42,12 +42,27 @@ This repository is organized as follows:
 
 (Choose either version/option)
 
-For the **C++ version**, a C++14 compiler (MSVC, GCC or Clang) and CMake are required. Build on Windows or Linux with:
+For the **C++ version**, a 64-bit C++14 compiler (GCC, Clang or MSVC) and CMake are required. Build on Linux with:
 
 ```bash
 cmake -S TreeSeparation/TreeSeparation -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
+cmake --build build
 ```
+
+On Windows, install [MSYS2](https://www.msys2.org) (`winget install MSYS2.MSYS2`), then in the "MSYS2 UCRT64" shell install the toolchain and add `C:\msys64\ucrt64\bin` to your `PATH`:
+
+```bash
+pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+```
+
+Then build from any terminal (`-static` makes `build\TreeSeparation.exe` run without MSYS2 on the `PATH`):
+
+```bash
+cmake -S TreeSeparation/TreeSeparation -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS=-static
+cmake --build build
+```
+
+Avoid the legacy 32-bit MinGW.org compiler: it limits memory to 2–4 GB and ran about 2.7× slower on the test data.
 
 For the **Python versions**, create the conda environment:
 
