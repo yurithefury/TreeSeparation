@@ -547,7 +547,7 @@ void FoxTree::outputTreesMy(std::string filename, std::map<int, TreeCluster> tre
 			int id = trees.at(i).ptIDs.at(j);
 
 			Point3D pt = this->m_Points[id];
-			fprintf(file, "%d %lf %lf %lf\n",
+			fprintf(file, "%d %.17g %.17g %.17g\n",
 				pt.treeID, pt.x, pt.y, pt.z);
 		}
 	}

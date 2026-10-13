@@ -270,7 +270,7 @@ class FoxTree:
                     for idx in indices:
                         pt = self.points_data[idx]
                         # Format: TreeID X Y Z R G B
-                        f.write(f"{t_id} {pt[0]:.6f} {pt[1]:.6f} {pt[2]:.6f} {r} {g} {b}\n")
+                        f.write(f"{t_id} {pt[0]:.17g} {pt[1]:.17g} {pt[2]:.17g} {r} {g} {b}\n")
             print("Finished writing file.")
         except IOError as e:
             print(f"Error writing file: {e}")

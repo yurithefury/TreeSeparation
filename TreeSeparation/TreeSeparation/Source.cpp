@@ -21,7 +21,9 @@
 
 
 #include<iostream>
+#include<fstream>
 #include<sstream>
+#include<string>
 
 #include"FoxTree.h"
 
@@ -45,17 +47,25 @@ int main(int argc, char** argv)
 	std::vector<Point3D> points;
 	Point3D tempPt;
 
-	//Reading points from ASCII formated file;
-	FILE* inFile = fopen(argv[1], "r");
+	//Reading points from ASCII formated file: x y z from the first three columns, extra columns ignored;
+	std::ifstream inFile(argv[1]);
 	if (inFile)
 	{
-		while (!feof(inFile))
+		std::string line;
+		int skipped = 0;
+		while (std::getline(inFile, line))
 		{
-			fscanf(inFile, "%lf %lf %lf\n",
-				&tempPt.x, &tempPt.y, &tempPt.z);
-			points.push_back(tempPt);
+			if (sscanf(line.c_str(), "%lf %lf %lf", &tempPt.x, &tempPt.y, &tempPt.z) == 3)
+				points.push_back(tempPt);
+			else if (line.find_first_not_of(" \t\r") != std::string::npos)
+				++skipped;
 		}
-		fclose(inFile);
+		if (skipped > 0) std::cerr << "Skipped " << skipped << " lines without x y z values" << std::endl;
+		if (points.empty())
+		{
+			std::cerr << "No points found in " << argv[1] << std::endl;
+			return 1;
+		}
 	}
 	else
 	{

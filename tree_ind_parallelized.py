@@ -15,6 +15,11 @@ import sys
 import time
 import traceback
 
+# One BLAS thread per process: with a thread pool per worker, OpenBLAS reserves
+# tens of GB of commit across all workers and they can fail with MemoryError
+for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ.setdefault(_var, "1")
+
 try:
     import numpy as np
     from scipy.spatial import cKDTree
@@ -310,12 +315,13 @@ class FoxTree:
                     lines = []
                     for idx in indices:
                         pt = self.points_data[idx]
-                        lines.append(f"{t_id} {pt[0]:.4f} {pt[1]:.4f} {pt[2]:.4f} {r} {g} {b}\n")
+                        lines.append(f"{t_id} {pt[0]:.17g} {pt[1]:.17g} {pt[2]:.17g} {r} {g} {b}\n")
                     f.writelines(lines)
             t_write_end = time.time()
             print(f"  [Time] Write Output: {t_write_end - t_write_start:.4f} sec")
         except IOError as e:
             print(f"Error writing file: {e}")
+            raise
 
 # =========================================================
 #                   FILE PROCESSING
@@ -331,11 +337,11 @@ def process_file(input_path, output_path, radius, v_res, min_pts):
         t_load_end = time.time()
     except Exception as e:
         print(f"Error loading {input_path}: {e}")
-        return
+        return False
 
     if points.size == 0:
         print(f"Warning: File {input_path} is empty.")
-        return
+        return True
 
     print(f"\nProcessing: {os.path.basename(input_path)} | Points: {len(points)}")
     print(f"  [Time] Data Loading: {t_load_end - t_load_start:.4f} sec")
@@ -350,9 +356,11 @@ def process_file(input_path, output_path, radius, v_res, min_pts):
     except Exception as e:
         print(f"CRITICAL ERROR processing file: {e}")
         traceback.print_exc()
+        return False
     
     t_file_end = time.time()
     print(f"  [Time] TOTAL for file: {t_file_end - t_file_start:.4f} sec")
+    return True
 
 # =========================================================
 #                   MAIN ENTRY POINT
@@ -392,6 +400,7 @@ if __name__ == "__main__":
     print(f"Utilizing {multiprocessing.cpu_count()} cores for parallel processing.")
     
     grand_total_start = time.time()
+    failed = []
     
     for file_path in xyz_files:
         base_name = os.path.basename(file_path)
@@ -404,6 +413,10 @@ if __name__ == "__main__":
         out_filename = f"{name_root}_{RADIUS}_{VERTICAL_RESOLUTION}_{MIN_PTS_PER_CLUSTER}{ext}"
         out_full_path = os.path.join(output_dir, out_filename)
         
-        process_file(file_path, out_full_path, RADIUS, VERTICAL_RESOLUTION, MIN_PTS_PER_CLUSTER)
+        if not process_file(file_path, out_full_path, RADIUS, VERTICAL_RESOLUTION, MIN_PTS_PER_CLUSTER):
+            failed.append(base_name)
         
     print(f"\nAll tasks completed in {time.time() - grand_total_start:.2f} seconds.")
+    if failed:
+        print(f"FAILED: {len(failed)} file(s): {', '.join(failed)}")
+        sys.exit(1)
